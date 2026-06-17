@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import { Zap, Puzzle } from 'lucide-react'
+import { Puzzle } from 'lucide-react'
 import Layout from './components/Layout'
 import StubPage from './components/StubPage'
 import ProxyLog from './pages/ProxyLog'
@@ -8,6 +8,7 @@ import Scope from './pages/Scope'
 import HttpClient from './pages/HttpClient'
 import Settings from './pages/Settings'
 import WebSockets from './pages/WebSockets'
+import Fuzzer from './pages/Fuzzer'
 
 export default function App() {
   return (
@@ -18,7 +19,7 @@ export default function App() {
         <Route path="/scope" element={<Scope />} />
         <Route path="/client" element={<HttpClient />} />
         <Route path="/settings" element={<Settings />} />
-        <Route path="/fuzzer" element={<StubPage title="Fuzzer" icon={Zap} />} />
+        <Route path="/fuzzer" element={<Fuzzer />} />
         <Route path="/websockets" element={<WebSockets />} />
         <Route path="/plugins" element={<StubPage title="Plugins" icon={Puzzle} />} />
       </Routes>

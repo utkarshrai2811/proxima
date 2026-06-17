@@ -27,6 +27,7 @@ import (
 	"github.com/utkarshrai2811/proxima/pkg/chrome"
 	"github.com/utkarshrai2811/proxima/pkg/config"
 	"github.com/utkarshrai2811/proxima/pkg/db/bolt"
+	"github.com/utkarshrai2811/proxima/pkg/fuzzer"
 	"github.com/utkarshrai2811/proxima/pkg/proj"
 	"github.com/utkarshrai2811/proxima/pkg/proxy"
 	"github.com/utkarshrai2811/proxima/pkg/proxy/intercept"
@@ -243,6 +244,7 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 	}
 
 	wsStore := ws.NewStore()
+	fuzzManager := fuzzer.NewManager()
 
 	proxy, err := proxy.NewProxy(proxy.Config{
 		CACert:  caCert,
@@ -356,6 +358,9 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 
 	// WebSocket session REST + SSE API.
 	adminRouter.PathPrefix("/api/ws").Handler(ws.Handler(wsStore))
+
+	// Fuzzer REST + SSE API.
+	adminRouter.PathPrefix("/api/fuzzer").Handler(fuzzer.Handler(fuzzManager))
 
 	// Admin interface (single-page app with client-side routing).
 	adminRouter.PathPrefix("").Handler(adminHandler)

