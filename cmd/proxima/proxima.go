@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"embed"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -36,10 +37,7 @@ import (
 
 var version = "0.0.0"
 
-//go:embed admin
-//go:embed admin/_next/static
-//go:embed admin/_next/static/chunks/pages/*.js
-//go:embed admin/_next/static/*/*.js
+//go:embed all:admin/dist
 var adminContent embed.FS
 
 var proximaUsage = `
@@ -257,12 +255,12 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 	proxy.UseRequestModifier(interceptService.RequestModifier)
 	proxy.UseResponseModifier(interceptService.ResponseModifier)
 
-	fsSub, err := fs.Sub(adminContent, "admin")
+	fsSub, err := fs.Sub(adminContent, "admin/dist")
 	if err != nil {
 		cmd.config.logger.Fatal("Failed to construct file system subtree from admin dir.", zap.Error(err))
 	}
 
-	adminHandler := http.FileServer(http.FS(fsSub))
+	adminHandler := spaFileServer(fsSub)
 	router := mux.NewRouter().SkipClean(true)
 	adminRouter := router.MatcherFunc(func(req *http.Request, match *mux.RouteMatch) bool {
 		hostname, _ := os.Hostname()
@@ -319,7 +317,40 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 		SenderService:     senderService,
 	}, gqlEndpoint))
 
-	// Admin interface.
+	// CA certificate download for the Settings page. The CA cert is meant to be
+	// installed in trust stores, so serving it (gated by auth) is safe.
+	adminRouter.HandleFunc("/api/cert/download", func(w http.ResponseWriter, _ *http.Request) {
+		caCertFile, err := homedir.Expand(cmd.cert)
+		if err != nil {
+			http.Error(w, "could not resolve certificate path", http.StatusInternalServerError)
+
+			return
+		}
+
+		data, err := os.ReadFile(caCertFile)
+		if err != nil {
+			http.Error(w, "certificate not available", http.StatusNotFound)
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/x-pem-file")
+		w.Header().Set("Content-Disposition", `attachment; filename="proxima_cert.pem"`)
+		_, _ = w.Write(data)
+	})
+
+	// Read-only server configuration for the Settings page.
+	adminRouter.HandleFunc("/api/config", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"listenAddr":   cmd.addr,
+			"maxBodySize":  cmd.maxBodySize,
+			"allowedHosts": cmd.allowedHosts,
+			"authEnabled":  cmd.apiKey != "",
+		})
+	})
+
+	// Admin interface (single-page app with client-side routing).
 	adminRouter.PathPrefix("").Handler(adminHandler)
 
 	// Fallback (default) is the Proxy handler.
@@ -380,4 +411,31 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 	}
 
 	return nil
+}
+
+// spaFileServer serves the embedded single-page app. Real files (index.html,
+// /assets/*) are served as-is; any other path falls back to index.html so the
+// client-side router handles deep links and hard refreshes (e.g. /intercept).
+func spaFileServer(fsys fs.FS) http.Handler {
+	fileServer := http.FileServer(http.FS(fsys))
+	index, _ := fs.ReadFile(fsys, "index.html")
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/")
+		if name == "" {
+			fileServer.ServeHTTP(w, r)
+
+			return
+		}
+
+		if f, err := fsys.Open(name); err == nil {
+			_ = f.Close()
+			fileServer.ServeHTTP(w, r)
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write(index)
+	})
 }
