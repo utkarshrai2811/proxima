@@ -30,6 +30,7 @@ import (
 	"github.com/utkarshrai2811/proxima/pkg/db/bolt"
 	"github.com/utkarshrai2811/proxima/pkg/export"
 	"github.com/utkarshrai2811/proxima/pkg/fuzzer"
+	"github.com/utkarshrai2811/proxima/pkg/plugin"
 	"github.com/utkarshrai2811/proxima/pkg/proj"
 	"github.com/utkarshrai2811/proxima/pkg/proxy"
 	"github.com/utkarshrai2811/proxima/pkg/proxy/intercept"
@@ -248,6 +249,13 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 	wsStore := ws.NewStore()
 	fuzzManager := fuzzer.NewManager()
 
+	pluginMgr := plugin.NewManager(config.PluginDir(), cmd.config.logger.Named("plugin").Sugar(), nil)
+	if err := pluginMgr.LoadAll(); err != nil {
+		mainLogger.Error("Failed to load plugins.", zap.Error(err))
+	}
+
+	fuzzManager.SetResultHook(pluginFuzzResultHook(pluginMgr))
+
 	proxy, err := proxy.NewProxy(proxy.Config{
 		CACert:  caCert,
 		CAKey:   caKey,
@@ -262,6 +270,11 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 	proxy.UseResponseModifier(reqLogService.ResponseModifier)
 	proxy.UseRequestModifier(interceptService.RequestModifier)
 	proxy.UseResponseModifier(interceptService.ResponseModifier)
+	proxy.UseRequestModifier(pluginRequestModifier(pluginMgr))
+	proxy.UseResponseModifier(pluginResponseModifier(pluginMgr))
+
+	// Let plugins auto-forward/drop requests before they reach the intercept queue.
+	interceptService.SetRequestQueueHook(pluginInterceptHook(pluginMgr))
 
 	fsSub, err := fs.Sub(adminContent, "admin/dist")
 	if err != nil {
@@ -363,6 +376,9 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 
 	// Fuzzer REST + SSE API.
 	adminRouter.PathPrefix("/api/fuzzer").Handler(fuzzer.Handler(fuzzManager))
+
+	// Plugin management REST API.
+	adminRouter.PathPrefix("/api/plugins").Handler(plugin.Handler(pluginMgr))
 
 	// Export API (Burp XML / curl / OpenAPI) over selected proxy log entries.
 	adminRouter.Path("/api/export").Methods(http.MethodPost).Handler(export.Handler(

@@ -58,6 +58,16 @@ type Service struct {
 	responsesEnabled bool
 	reqFilter        filter.Expression
 	resFilter        filter.Expression
+
+	// requestQueueHook, when set, runs before a matching request is queued for
+	// manual review. Returning "drop" aborts the request and "forward" lets it
+	// pass through without queuing (used by the plugin onIntercept hook).
+	requestQueueHook func(*http.Request) string
+}
+
+// SetRequestQueueHook installs a hook consulted before a request is queued.
+func (svc *Service) SetRequestQueueHook(fn func(*http.Request) string) {
+	svc.requestQueueHook = fn
 }
 
 type Config struct {
@@ -145,6 +155,15 @@ func (svc *Service) InterceptRequest(ctx context.Context, req *http.Request) (*h
 
 		if !match {
 			svc.logger.Debugw("Bypassed request interception: request rules don't match.")
+			return req, nil
+		}
+	}
+
+	if svc.requestQueueHook != nil {
+		switch svc.requestQueueHook(req) {
+		case "drop":
+			return nil, ErrRequestAborted
+		case "forward":
 			return req, nil
 		}
 	}
