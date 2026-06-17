@@ -33,6 +33,7 @@ import (
 	"github.com/utkarshrai2811/proxima/pkg/reqlog"
 	"github.com/utkarshrai2811/proxima/pkg/scope"
 	"github.com/utkarshrai2811/proxima/pkg/sender"
+	"github.com/utkarshrai2811/proxima/pkg/ws"
 )
 
 var version = "0.0.0"
@@ -241,10 +242,13 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 		cmd.config.logger.Fatal("Failed to create new projects service.", zap.Error(err))
 	}
 
+	wsStore := ws.NewStore()
+
 	proxy, err := proxy.NewProxy(proxy.Config{
-		CACert: caCert,
-		CAKey:  caKey,
-		Logger: cmd.config.logger.Named("proxy").Sugar(),
+		CACert:  caCert,
+		CAKey:   caKey,
+		Logger:  cmd.config.logger.Named("proxy").Sugar(),
+		WSStore: wsStore,
 	})
 	if err != nil {
 		cmd.config.logger.Fatal("Failed to create new proxy.", zap.Error(err))
@@ -349,6 +353,9 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 			"authEnabled":  cmd.apiKey != "",
 		})
 	})
+
+	// WebSocket session REST + SSE API.
+	adminRouter.PathPrefix("/api/ws").Handler(ws.Handler(wsStore))
 
 	// Admin interface (single-page app with client-side routing).
 	adminRouter.PathPrefix("").Handler(adminHandler)

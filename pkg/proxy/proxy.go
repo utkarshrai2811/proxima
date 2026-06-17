@@ -17,6 +17,7 @@ import (
 	"github.com/oklog/ulid"
 
 	"github.com/utkarshrai2811/proxima/pkg/log"
+	"github.com/utkarshrai2811/proxima/pkg/ws"
 )
 
 // ulidEntropy must be safe for concurrent use; the proxy mints a request ID
@@ -34,6 +35,7 @@ type Proxy struct {
 	certConfig *CertConfig
 	handler    http.Handler
 	logger     log.Logger
+	wsStore    *ws.Store
 
 	// TODO: Add mutex for modifier funcs.
 	reqModifiers []RequestModifyMiddleware
@@ -44,6 +46,9 @@ type Config struct {
 	CACert *x509.Certificate
 	CAKey  crypto.PrivateKey
 	Logger log.Logger
+	// WSStore, when set, enables WebSocket frame logging/replay. When nil,
+	// WebSocket upgrades are proxied transparently without per-frame logging.
+	WSStore *ws.Store
 }
 
 // NewProxy returns a new Proxy.
@@ -58,6 +63,7 @@ func NewProxy(cfg Config) (*Proxy, error) {
 		reqModifiers: make([]RequestModifyMiddleware, 0),
 		resModifiers: make([]ResponseModifyMiddleware, 0),
 		logger:       cfg.Logger,
+		wsStore:      cfg.WSStore,
 	}
 
 	if p.logger == nil {
@@ -100,6 +106,12 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	reqID := ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy)
 	ctx := context.WithValue(r.Context(), reqIDKey, reqID)
 	*r = *r.WithContext(ctx)
+
+	if p.wsStore != nil && isWebSocketUpgrade(r) {
+		p.handleWebSocket(w, r, reqID.String())
+
+		return
+	}
 
 	p.handler.ServeHTTP(w, r)
 }

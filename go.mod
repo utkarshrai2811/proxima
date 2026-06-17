@@ -9,6 +9,7 @@ require (
 	github.com/chromedp/chromedp v0.7.8
 	github.com/google/go-cmp v0.5.6
 	github.com/gorilla/mux v1.7.4
+	github.com/gorilla/websocket v1.5.3
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/oklog/ulid v1.3.1
 	github.com/peterbourgon/ff/v3 v3.1.2
@@ -26,7 +27,6 @@ require (
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.1.0 // indirect
-	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
