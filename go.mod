@@ -17,6 +17,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.2.0
 	go.etcd.io/bbolt v1.4.0-beta.0
 	go.uber.org/zap v1.21.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

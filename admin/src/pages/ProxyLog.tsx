@@ -11,6 +11,7 @@ import {
   type HttpRequestLog,
 } from '../lib/api'
 import { MethodChip, StatusChip, cx } from '../components/ui'
+import { downloadFile, exportRequests, type ExportFormat } from '../lib/export'
 
 const PAGE_SIZE = 50
 
@@ -122,6 +123,9 @@ export default function ProxyLog() {
   const [selected, setSelected] = useState<HttpRequestLog | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const [curlText, setCurlText] = useState<string | null>(null)
+  const [exportErr, setExportErr] = useState('')
 
   const logs = useQuery({ queryKey: ['requestLogs'], queryFn: fetchRequestLogs })
 
@@ -142,6 +146,33 @@ export default function ProxyLog() {
   const total = all.length
   const start = page * PAGE_SIZE
   const rows = all.slice(start, start + PAGE_SIZE)
+
+  const toggleCheck = (id: string) =>
+    setCheckedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+
+      return next
+    })
+  const allChecked = rows.length > 0 && rows.every((r) => checkedIds.has(r.id))
+  const toggleAll = () =>
+    setCheckedIds((prev) => {
+      const next = new Set(prev)
+      rows.forEach((r) => (allChecked ? next.delete(r.id) : next.add(r.id)))
+
+      return next
+    })
+  const doExport = async (format: ExportFormat) => {
+    setExportErr('')
+    try {
+      const result = await exportRequests([...checkedIds], format)
+      if (format === 'CURL') setCurlText(result.content)
+      else downloadFile(result.content, result.filename, result.mimeType)
+    } catch (e) {
+      setExportErr(String(e))
+    }
+  }
 
   return (
     <div className="flex h-full">
@@ -173,10 +204,37 @@ export default function ProxyLog() {
           </div>
         </div>
 
+        {checkedIds.size > 0 && (
+          <div className="flex items-center gap-3 border-b border-border bg-bg-surface px-3 py-2 text-xs">
+            <span>{checkedIds.size} selected</span>
+            <button
+              onClick={() => setCheckedIds(new Set())}
+              className="text-text-secondary hover:text-text-primary"
+            >
+              Clear
+            </button>
+            <span className="flex-1" />
+            <span className="text-text-secondary">Export as</span>
+            <button onClick={() => doExport('BURP_XML')} className="border border-border px-2 py-1 hover:text-accent">
+              Burp XML
+            </button>
+            <button onClick={() => doExport('CURL')} className="border border-border px-2 py-1 hover:text-accent">
+              curl
+            </button>
+            <button onClick={() => doExport('OPENAPI')} className="border border-border px-2 py-1 hover:text-accent">
+              OpenAPI
+            </button>
+            {exportErr && <span className="text-text-danger">{exportErr}</span>}
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 bg-bg-surface text-xs uppercase text-text-secondary">
               <tr>
+                <th className="px-3 py-2">
+                  <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+                </th>
                 <th className="px-3 py-2">Method</th>
                 <th className="px-3 py-2">URL</th>
                 <th className="px-3 py-2">Status</th>
@@ -194,6 +252,13 @@ export default function ProxyLog() {
                     selected?.id === log.id && 'bg-bg-elevated',
                   )}
                 >
+                  <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={checkedIds.has(log.id)}
+                      onChange={() => toggleCheck(log.id)}
+                    />
+                  </td>
                   <td className="px-3 py-1.5">
                     <MethodChip method={log.method} />
                   </td>
@@ -211,7 +276,7 @@ export default function ProxyLog() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-text-secondary">
+                  <td colSpan={6} className="px-3 py-8 text-center text-text-secondary">
                     {logs.isLoading ? 'Loading…' : 'No requests logged yet.'}
                   </td>
                 </tr>
@@ -244,6 +309,45 @@ export default function ProxyLog() {
       </div>
 
       {selected && <DetailPanel log={selected} onClose={() => setSelected(null)} />}
+
+      {curlText !== null && (
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black/60"
+          onClick={() => setCurlText(null)}
+        >
+          <div
+            className="flex max-h-[80vh] w-[700px] flex-col border border-border bg-bg-surface p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-bold">curl</h2>
+              <button
+                onClick={() => setCurlText(null)}
+                className="text-text-secondary hover:text-text-primary"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <pre className="flex-1 overflow-auto whitespace-pre-wrap break-all bg-bg-base p-2 text-xs">
+              {curlText}
+            </pre>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => navigator.clipboard?.writeText(curlText)}
+                className="bg-accent px-3 py-1.5 text-xs font-bold text-bg-base hover:bg-accent-dim"
+              >
+                Copy to clipboard
+              </button>
+              <button
+                onClick={() => downloadFile(curlText, 'proxima_export.sh', 'text/plain')}
+                className="border border-border px-3 py-1.5 text-xs"
+              >
+                Download .sh
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

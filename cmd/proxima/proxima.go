@@ -19,6 +19,7 @@ import (
 	"github.com/chromedp/chromedp"
 	"github.com/gorilla/mux"
 	"github.com/mitchellh/go-homedir"
+	"github.com/oklog/ulid"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
@@ -27,6 +28,7 @@ import (
 	"github.com/utkarshrai2811/proxima/pkg/chrome"
 	"github.com/utkarshrai2811/proxima/pkg/config"
 	"github.com/utkarshrai2811/proxima/pkg/db/bolt"
+	"github.com/utkarshrai2811/proxima/pkg/export"
 	"github.com/utkarshrai2811/proxima/pkg/fuzzer"
 	"github.com/utkarshrai2811/proxima/pkg/proj"
 	"github.com/utkarshrai2811/proxima/pkg/proxy"
@@ -362,6 +364,28 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 	// Fuzzer REST + SSE API.
 	adminRouter.PathPrefix("/api/fuzzer").Handler(fuzzer.Handler(fuzzManager))
 
+	// Export API (Burp XML / curl / OpenAPI) over selected proxy log entries.
+	adminRouter.Path("/api/export").Methods(http.MethodPost).Handler(export.Handler(
+		func(ids []string) ([]export.Entry, error) {
+			entries := make([]export.Entry, 0, len(ids))
+
+			for _, idStr := range ids {
+				id, err := ulid.Parse(idStr)
+				if err != nil {
+					continue
+				}
+
+				rl, err := reqLogService.FindRequestLogByID(context.Background(), id)
+				if err != nil {
+					continue
+				}
+
+				entries = append(entries, reqlogToExportEntry(rl))
+			}
+
+			return entries, nil
+		}))
+
 	// Admin interface (single-page app with client-side routing).
 	adminRouter.PathPrefix("").Handler(adminHandler)
 
@@ -450,4 +474,26 @@ func spaFileServer(fsys fs.FS) http.Handler {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(index)
 	})
+}
+
+func reqlogToExportEntry(rl reqlog.RequestLog) export.Entry {
+	e := export.Entry{
+		Method: rl.Method,
+		URL:    rl.URL,
+		Proto:  rl.Proto,
+		Header: rl.Header,
+		Body:   rl.Body,
+	}
+
+	if rl.Response != nil {
+		e.Response = &export.Response{
+			Proto:      rl.Response.Proto,
+			StatusCode: rl.Response.StatusCode,
+			Status:     rl.Response.Status,
+			Header:     rl.Response.Header,
+			Body:       rl.Response.Body,
+		}
+	}
+
+	return e
 }
