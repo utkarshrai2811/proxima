@@ -68,10 +68,15 @@ func init() {
 	prefixParsers[TokParenOpen] = parseGroupedExpression
 }
 
+// maxFilterDepth bounds recursion in the descent parser to prevent a stack
+// overflow (DoS) from deeply nested expressions such as "(((((...)))))".
+const maxFilterDepth = 50
+
 type Parser struct {
-	l    *Lexer
-	cur  Token
-	peek Token
+	l     *Lexer
+	cur   Token
+	peek  Token
+	depth int
 }
 
 func NewParser(l *Lexer) *Parser {
@@ -143,6 +148,14 @@ func (p *Parser) peekPrecedence() precedence {
 }
 
 func (p *Parser) parseExpression(prec precedence) (Expression, error) {
+	// Track recursion depth; every recursive parse routes through here.
+	p.depth++
+	defer func() { p.depth-- }()
+
+	if p.depth > maxFilterDepth {
+		return nil, fmt.Errorf("filter: expression too deeply nested (max depth: %d)", maxFilterDepth)
+	}
+
 	prefixParser, ok := prefixParsers[p.cur.Type]
 	if !ok {
 		return nil, fmt.Errorf("no prefix parse function for %v found", p.cur.Type)
