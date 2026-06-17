@@ -72,8 +72,11 @@ func TestRequestModifier(t *testing.T) {
 		modReq.Header.Set("X-Foo", "bar")
 
 		err := svc.ModifyRequest(reqID, modReq, nil)
-		if !errors.Is(err, intercept.ErrRequestDone) {
-			t.Fatalf("expected `intercept.ErrRequestDone`, got: %v", err)
+		// After cancellation the entry may be either still present with its done
+		// channel closed (ErrRequestDone) or already cleaned up (ErrRequestNotFound).
+		// Both mean the modification did not take effect; asserting only one is racy.
+		if !errors.Is(err, intercept.ErrRequestDone) && !errors.Is(err, intercept.ErrRequestNotFound) {
+			t.Fatalf("expected `ErrRequestDone` or `ErrRequestNotFound`, got: %v", err)
 		}
 	})
 
@@ -196,8 +199,11 @@ func TestResponseModifier(t *testing.T) {
 		modRes.Header.Set("X-Foo", "bar")
 
 		err := svc.ModifyResponse(reqID, &modRes)
-		if !errors.Is(err, intercept.ErrRequestDone) {
-			t.Fatalf("expected `intercept.ErrRequestDone`, got: %v", err)
+		// After cancellation the entry may be either still present with its done
+		// channel closed (ErrRequestDone) or already cleaned up (ErrRequestNotFound).
+		// Both mean the modification did not take effect; asserting only one is racy.
+		if !errors.Is(err, intercept.ErrRequestDone) && !errors.Is(err, intercept.ErrRequestNotFound) {
+			t.Fatalf("expected `ErrRequestDone` or `ErrRequestNotFound`, got: %v", err)
 		}
 
 		wg.Wait()
