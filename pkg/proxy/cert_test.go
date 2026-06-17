@@ -16,7 +16,19 @@ import (
 // fails.
 func TestLoadOrCreateCACreatesCertDir(t *testing.T) {
 	tmp := t.TempDir()
-	t.Chdir(tmp)
+
+	// Run from tmp so the decoy "keyDir" entry below sits in the working
+	// directory. (os.Chdir rather than t.Chdir to keep the go1.23 floor.)
+	origWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = os.Chdir(origWD) })
 
 	// Decoy entry that the buggy os.Stat("keyDir") literal would match.
 	if err := os.Mkdir("keyDir", 0o755); err != nil {
