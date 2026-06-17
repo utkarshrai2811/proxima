@@ -53,6 +53,8 @@ Options:
     --key          Path to root CA private key. Creates file if it doesn't exist. (Default: <data dir>/proxima_key.pem)
     --db           Database file path. Creates file if it doesn't exist. (Default: <data dir>/proxima.db)
     --addr         TCP address for HTTP server to listen on, in the form \"host:port\". (Default: ":8080")
+    --allowed-hosts  Comma-separated allowed Host header values for the admin UI, to prevent
+                     DNS rebinding. The proxy endpoint is never gated. (Default: "localhost,127.0.0.1")
     --chrome       Launch Chrome with proxy settings applied and certificate errors ignored. (Default: false)
     --verbose      Enable verbose logging.
     --json         Encode logs as JSON, instead of pretty/human readable output.
@@ -75,12 +77,13 @@ Visit https://github.com/utkarshrai2811/proxima to learn more about Proxima.
 type ProximaCommand struct {
 	config *Config
 
-	cert    string
-	key     string
-	db      string
-	addr    string
-	chrome  bool
-	version bool
+	cert         string
+	key          string
+	db           string
+	addr         string
+	allowedHosts string
+	chrome       bool
+	version      bool
 }
 
 func NewProximaCommand() (*ffcli.Command, *Config) {
@@ -96,6 +99,9 @@ func NewProximaCommand() (*ffcli.Command, *Config) {
 		"Path to root CA private key. Creates a new private key if file doesn't exist.")
 	fs.StringVar(&cmd.db, "db", config.DBPath(), "Database file path. Creates file if it doesn't exist.")
 	fs.StringVar(&cmd.addr, "addr", ":8080", "TCP address to listen on, in the form \"host:port\".")
+	fs.StringVar(&cmd.allowedHosts, "allowed-hosts", "localhost,127.0.0.1",
+		"Comma-separated list of allowed Host header values for the admin UI. "+
+			"Prevents DNS rebinding attacks. The proxy traffic endpoint is never gated.")
 	fs.BoolVar(&cmd.chrome, "chrome", false, "Launch Chrome with proxy settings applied and certificate errors ignored.")
 	fs.BoolVar(&cmd.version, "version", false, "Output version.")
 	fs.BoolVar(&cmd.version, "v", false, "Output version.")
@@ -234,6 +240,17 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 			req.Host == fmt.Sprintf("%v:%v", listenHost, listenPort) ||
 			req.Method != http.MethodConnect && !strings.HasPrefix(req.RequestURI, "http://")
 	}).Subrouter().StrictSlash(true)
+
+	// Gate the admin UI and API behind a Host header allowlist to prevent DNS
+	// rebinding attacks. The proxy fallback handler below is never gated.
+	allowedHosts := strings.Split(cmd.allowedHosts, ",")
+	for i := range allowedHosts {
+		allowedHosts[i] = strings.TrimSpace(allowedHosts[i])
+	}
+
+	adminRouter.Use(func(next http.Handler) http.Handler {
+		return api.HostAllowlistMiddleware(allowedHosts, next)
+	})
 
 	// GraphQL server.
 	gqlEndpoint := "/api/graphql/"
