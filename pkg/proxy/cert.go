@@ -16,6 +16,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -31,6 +32,57 @@ type CertConfig struct {
 	caPriv crypto.PrivateKey
 	priv   *rsa.PrivateKey
 	keyID  []byte
+	cache  *certCache
+}
+
+const (
+	// maxCertCacheSize bounds the number of generated leaf certificates kept
+	// in memory, preventing unbounded growth over long proxy sessions.
+	maxCertCacheSize = 1000
+	// certCacheEvictCount is the number of oldest entries evicted at once when
+	// the cache is full.
+	certCacheEvictCount = 100
+)
+
+// certCache is a bounded, FIFO-evicting cache of generated leaf certificates,
+// keyed by host name. It is safe for concurrent use.
+type certCache struct {
+	mu    sync.Mutex
+	cache map[string]*tls.Certificate
+	order []string
+}
+
+func newCertCache() *certCache {
+	return &certCache{cache: make(map[string]*tls.Certificate)}
+}
+
+func (c *certCache) get(host string) (*tls.Certificate, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	cert, ok := c.cache[host]
+
+	return cert, ok
+}
+
+func (c *certCache) set(host string, cert *tls.Certificate) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if _, exists := c.cache[host]; !exists {
+		c.order = append(c.order, host)
+	}
+
+	c.cache[host] = cert
+
+	if len(c.order) > maxCertCacheSize {
+		evict := c.order[:certCacheEvictCount]
+		for _, h := range evict {
+			delete(c.cache, h)
+		}
+
+		c.order = c.order[certCacheEvictCount:]
+	}
 }
 
 // NewCertConfig creates a MITM config using the CA certificate and
@@ -59,6 +111,7 @@ func NewCertConfig(ca *x509.Certificate, caPrivKey crypto.PrivateKey) (*CertConf
 		caPriv: caPrivKey,
 		priv:   priv,
 		keyID:  keyID,
+		cache:  newCertCache(),
 	}, nil
 }
 
@@ -217,6 +270,10 @@ func (c *CertConfig) cert(hostname string) (*tls.Certificate, error) {
 		hostname = host
 	}
 
+	if cert, ok := c.cache.get(hostname); ok {
+		return cert, nil
+	}
+
 	serial, err := rand.Int(rand.Reader, MaxSerialNumber)
 	if err != nil {
 		return nil, err
@@ -253,9 +310,13 @@ func (c *CertConfig) cert(hostname string) (*tls.Certificate, error) {
 		return nil, err
 	}
 
-	return &tls.Certificate{
+	tlsCert := &tls.Certificate{
 		Certificate: [][]byte{raw, c.ca.Raw},
 		PrivateKey:  c.priv,
 		Leaf:        x509c,
-	}, nil
+	}
+
+	c.cache.set(hostname, tlsCert)
+
+	return tlsCert, nil
 }

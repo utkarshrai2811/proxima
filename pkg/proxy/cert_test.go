@@ -1,6 +1,8 @@
 package proxy
 
 import (
+	"crypto/tls"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -43,5 +45,38 @@ func TestLoadOrCreateCACreatesCertDir(t *testing.T) {
 	// A second call must load the existing pair from disk without error.
 	if _, _, err := LoadOrCreateCA(keyFile, certFile); err != nil {
 		t.Fatalf("LoadOrCreateCA (reload) returned error: %v", err)
+	}
+}
+
+// TestCertCacheBounded is a regression test for hetty PR#129: the generated
+// certificate cache must stay bounded to prevent unbounded memory growth.
+func TestCertCacheBounded(t *testing.T) {
+	t.Parallel()
+
+	c := newCertCache()
+
+	const inserts = maxCertCacheSize + certCacheEvictCount + 50
+	for i := 0; i < inserts; i++ {
+		c.set(fmt.Sprintf("host-%d.example.com", i), &tls.Certificate{})
+
+		if got := len(c.cache); got > maxCertCacheSize {
+			t.Fatalf("cache exceeded max size after %d inserts: %d > %d", i+1, got, maxCertCacheSize)
+		}
+	}
+
+	if got := len(c.cache); got > maxCertCacheSize {
+		t.Fatalf("final cache size %d exceeds max %d", got, maxCertCacheSize)
+	}
+
+	// A freshly stored entry must be retrievable.
+	c.set("lookup.example.com", &tls.Certificate{})
+
+	if _, ok := c.get("lookup.example.com"); !ok {
+		t.Fatal("expected to find a just-stored host in the cache")
+	}
+
+	// The oldest entries must have been evicted.
+	if _, ok := c.get("host-0.example.com"); ok {
+		t.Fatal("expected oldest entry to be evicted from the cache")
 	}
 }
