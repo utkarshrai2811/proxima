@@ -192,9 +192,14 @@ func (svc *Service) ModifyRequest(reqID ulid.ULID, modReq *http.Request, modifyR
 		return ErrRequestNotFound
 	}
 
-	*modReq = *modReq.WithContext(req.req.Context())
-	if modifyResponse != nil {
-		*modReq = *modReq.WithContext(WithInterceptResponse(modReq.Context(), *modifyResponse))
+	// A nil modReq signals cancellation (see CancelRequest). Guard the
+	// dereference: forwarding the nil to the waiting goroutine is what aborts
+	// the request, so only rewrite the context when modReq is non-nil.
+	if modReq != nil {
+		*modReq = *modReq.WithContext(req.req.Context())
+		if modifyResponse != nil {
+			*modReq = *modReq.WithContext(WithInterceptResponse(modReq.Context(), *modifyResponse))
+		}
 	}
 
 	select {

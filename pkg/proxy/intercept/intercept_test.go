@@ -2,8 +2,8 @@ package intercept_test
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -17,8 +17,9 @@ import (
 	"github.com/utkarshrai2811/proxima/pkg/proxy/intercept"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+// ulidEntropy is shared across parallel subtests, so it must be safe for
+// concurrent use. crypto/rand.Reader is; a shared *math/rand.Rand is not.
+var ulidEntropy = rand.Reader
 
 func TestRequestModifier(t *testing.T) {
 	t.Parallel()
@@ -267,4 +268,45 @@ func TestResponseModifier(t *testing.T) {
 			t.Fatalf("incorrect modified request header value (expected: %v, got: %v)", exp, gotHeader)
 		}
 	})
+}
+
+func TestCancelRequestNilModReq(t *testing.T) {
+	t.Parallel()
+
+	// Regression test for hetty#145: CancelRequest forwards a nil modReq to
+	// ModifyRequest, which must not panic when dereferencing it.
+	req := httptest.NewRequest("GET", "https://example.com/foo", nil)
+	reqID := ulid.MustNew(ulid.Timestamp(time.Now()), ulidEntropy)
+	*req = *req.WithContext(proxy.WithRequestID(req.Context(), reqID))
+
+	logger, _ := zap.NewDevelopment()
+	svc := intercept.NewService(intercept.Config{
+		Logger:          logger.Sugar(),
+		RequestsEnabled: true,
+	})
+
+	nextCalled := false
+	next := func(req *http.Request) { nextCalled = true }
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		svc.RequestModifier(next)(req)
+	}()
+
+	// Wait shortly, to allow the req modifier goroutine to register the request.
+	time.Sleep(10 * time.Millisecond)
+
+	// CancelRequest passes a nil modReq; before the fix this panicked.
+	if err := svc.CancelRequest(reqID); err != nil {
+		t.Fatalf("CancelRequest returned unexpected error: %v", err)
+	}
+
+	wg.Wait()
+
+	if nextCalled {
+		t.Fatal("next modifier should not be called for an aborted request")
+	}
 }
