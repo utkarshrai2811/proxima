@@ -104,7 +104,7 @@ func LoadOrCreateCA(caKeyFile, caCertFile string) (*x509.Certificate, *rsa.Priva
 	}
 
 	// Create new CA keypair.
-	caCert, caKey, err := NewCA("Hetty", "Hetty CA", 365*24*time.Hour)
+	caCert, caKey, err := NewCA("Proxima", "Proxima CA", 365*24*time.Hour)
 	if err != nil {
 		return nil, nil, fmt.Errorf("proxy: could not generate new CA keypair: %w", err)
 	}
@@ -226,7 +226,7 @@ func (c *CertConfig) cert(hostname string) (*tls.Certificate, error) {
 		SerialNumber: serial,
 		Subject: pkix.Name{
 			CommonName:   hostname,
-			Organization: []string{"Hetty"},
+			Organization: []string{"Proxima"},
 		},
 		SubjectKeyId:          c.keyID,
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,

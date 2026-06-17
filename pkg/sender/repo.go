@@ -5,7 +5,7 @@ import (
 
 	"github.com/oklog/ulid"
 
-	"github.com/dstotijn/hetty/pkg/scope"
+	"github.com/utkarshrai2811/proxima/pkg/scope"
 )
 
 type Repository interface {

@@ -13,7 +13,7 @@ function Index(): JSX.Element {
           <Typography variant="h4">Scope</Typography>
         </Box>
         <Typography paragraph>
-          Scope rules are used by various modules in Hetty and can influence their behavior. For example: the Proxy logs
+          Scope rules are used by various modules in Proxima and can influence their behavior. For example: the Proxy logs
           module can match incoming requests against scope rules and decide its behavior (e.g. log or bypass) based on
           the outcome of the match. All scope configuration is stored per project.
         </Typography>

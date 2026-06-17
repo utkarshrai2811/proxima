@@ -7,9 +7,9 @@ import (
 
 	"github.com/oklog/ulid"
 
-	"github.com/dstotijn/hetty/pkg/filter"
-	"github.com/dstotijn/hetty/pkg/reqlog"
-	"github.com/dstotijn/hetty/pkg/scope"
+	"github.com/utkarshrai2811/proxima/pkg/filter"
+	"github.com/utkarshrai2811/proxima/pkg/reqlog"
+	"github.com/utkarshrai2811/proxima/pkg/scope"
 )
 
 var senderReqSearchKeyFns = map[string]func(req Request) string{

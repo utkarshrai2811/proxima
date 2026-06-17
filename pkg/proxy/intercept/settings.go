@@ -1,6 +1,6 @@
 package intercept
 
-import "github.com/dstotijn/hetty/pkg/filter"
+import "github.com/utkarshrai2811/proxima/pkg/filter"
 
 type Settings struct {
 	RequestsEnabled  bool

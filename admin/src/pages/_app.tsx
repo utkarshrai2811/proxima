@@ -28,7 +28,7 @@ export default function MyApp(props: MyAppProps) {
   return (
     <CacheProvider value={emotionCache}>
       <Head>
-        <title>Hetty://</title>
+        <title>Proxima://</title>
         <meta name="viewport" content="initial-scale=1, width=device-width" />
       </Head>
       <ApolloProvider client={apolloClient}>

@@ -12,10 +12,10 @@ import (
 
 	"github.com/oklog/ulid"
 
-	"github.com/dstotijn/hetty/pkg/filter"
-	"github.com/dstotijn/hetty/pkg/log"
-	"github.com/dstotijn/hetty/pkg/proxy"
-	"github.com/dstotijn/hetty/pkg/scope"
+	"github.com/utkarshrai2811/proxima/pkg/filter"
+	"github.com/utkarshrai2811/proxima/pkg/log"
+	"github.com/utkarshrai2811/proxima/pkg/proxy"
+	"github.com/utkarshrai2811/proxima/pkg/scope"
 )
 
 type contextKey int

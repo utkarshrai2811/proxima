@@ -8,11 +8,13 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/smallstep/truststore"
+
+	"github.com/utkarshrai2811/proxima/pkg/config"
 )
 
 var certUsage = `
 Usage:
-    hetty cert <subcommand> [flags]
+    proxima cert <subcommand> [flags]
 
 Certificate management tools.
 
@@ -25,43 +27,43 @@ Subcommands:
     - uninstall  Uninstalls a certificate from the system trust store, and
                  (optionally) from the Firefox and Java trust stores.
 
-Run ` + "`hetty cert <subcommand> --help`" + ` for subcommand specific usage instructions.
+Run ` + "`proxima cert <subcommand> --help`" + ` for subcommand specific usage instructions.
 
-Visit https://hetty.xyz to learn more about Hetty.
+Visit https://github.com/utkarshrai2811/proxima to learn more about Proxima.
 `
 
 var certInstallUsage = `
 Usage:
-    hetty cert install [flags]
+    proxima cert install [flags]
 	
 Installs a certificate to the system trust store, and (optionally) to the Firefox
 and Java trust stores.
 
 Options:
-    --cert         Path to certificate. (Default: "~/.hetty/hetty_cert.pem")
+    --cert         Path to certificate. (Default: <data dir>/proxima_cert.pem)
     --firefox      Install certificate to Firefox trust store. (Default: false)
     --java         Install certificate to Java trust store. (Default: false)
     --skip-system  Skip installing certificate to system trust store (Default: false)
     --help, -h     Output this usage text.
 
-Visit https://hetty.xyz to learn more about Hetty.
+Visit https://github.com/utkarshrai2811/proxima to learn more about Proxima.
 `
 
 var certUninstallUsage = `
 Usage:
-    hetty cert uninstall [flags]
+    proxima cert uninstall [flags]
 	
 Uninstalls a certificate from the system trust store, and (optionally) from the Firefox
 and Java trust stores.
 
 Options:
-    --cert         Path to certificate. (Default: "~/.hetty/hetty_cert.pem")
+    --cert         Path to certificate. (Default: <data dir>/proxima_cert.pem)
     --firefox      Uninstall certificate from Firefox trust store. (Default: false)
     --java         Uninstall certificate from Java trust store. (Default: false)
     --skip-system  Skip uninstalling certificate from system trust store (Default: false)
     --help, -h     Output this usage text.
 
-Visit https://hetty.xyz to learn more about Hetty.
+Visit https://github.com/utkarshrai2811/proxima to learn more about Proxima.
 `
 
 type CertInstallCommand struct {
@@ -100,9 +102,9 @@ func NewCertInstallCommand(rootConfig *Config) *ffcli.Command {
 	cmd := CertInstallCommand{
 		config: rootConfig,
 	}
-	fs := flag.NewFlagSet("hetty cert install", flag.ExitOnError)
+	fs := flag.NewFlagSet("proxima cert install", flag.ExitOnError)
 
-	fs.StringVar(&cmd.cert, "cert", "~/.hetty/hetty_cert.pem", "Path to certificate.")
+	fs.StringVar(&cmd.cert, "cert", config.CertPath(), "Path to certificate.")
 	fs.BoolVar(&cmd.firefox, "firefox", false, "Install certificate to Firefox trust store. (Default: false)")
 	fs.BoolVar(&cmd.java, "java", false, "Install certificate to Java trust store. (Default: false)")
 	fs.BoolVar(&cmd.skipSystem, "skip-system", false, "Skip installing certificate to system trust store (Default: false)")
@@ -157,9 +159,9 @@ func NewCertUninstallCommand(rootConfig *Config) *ffcli.Command {
 	cmd := CertUninstallCommand{
 		config: rootConfig,
 	}
-	fs := flag.NewFlagSet("hetty cert uninstall", flag.ExitOnError)
+	fs := flag.NewFlagSet("proxima cert uninstall", flag.ExitOnError)
 
-	fs.StringVar(&cmd.cert, "cert", "~/.hetty/hetty_cert.pem", "Path to certificate.")
+	fs.StringVar(&cmd.cert, "cert", config.CertPath(), "Path to certificate.")
 	fs.BoolVar(&cmd.firefox, "firefox", false, "Uninstall certificate from Firefox trust store. (Default: false)")
 	fs.BoolVar(&cmd.java, "java", false, "Uninstall certificate from Java trust store. (Default: false)")
 	fs.BoolVar(&cmd.skipSystem, "skip-system", false,

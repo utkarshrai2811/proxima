@@ -3,9 +3,9 @@ package sender_test
 import (
 	"testing"
 
-	"github.com/dstotijn/hetty/pkg/filter"
-	"github.com/dstotijn/hetty/pkg/reqlog"
-	"github.com/dstotijn/hetty/pkg/sender"
+	"github.com/utkarshrai2811/proxima/pkg/filter"
+	"github.com/utkarshrai2811/proxima/pkg/reqlog"
+	"github.com/utkarshrai2811/proxima/pkg/sender"
 )
 
 func TestRequestLogMatch(t *testing.T) {

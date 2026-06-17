@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dstotijn/hetty/pkg/filter"
-	"github.com/dstotijn/hetty/pkg/scope"
+	"github.com/utkarshrai2811/proxima/pkg/filter"
+	"github.com/utkarshrai2811/proxima/pkg/scope"
 )
 
 //nolint:unparam

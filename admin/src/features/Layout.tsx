@@ -183,7 +183,7 @@ export function Layout({ title, page, children }: Props): JSX.Element {
             }}
           >
             <Typography variant="h5" noWrap sx={{ width: "100%" }}>
-              <SiteTitle>Hetty://</SiteTitle>
+              <SiteTitle>Proxima://</SiteTitle>
               {title}
             </Typography>
             <Box sx={{ flexShrink: 0, pt: 0.75 }}>v{process.env.NEXT_PUBLIC_VERSION || "0.0"}</Box>

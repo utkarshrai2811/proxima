@@ -12,7 +12,7 @@ function Index(): JSX.Element {
           <Typography variant="h4">Projects</Typography>
         </Box>
         <Typography paragraph>
-          Projects contain settings and data generated/processed by Hetty. They are stored in a single database on disk.
+          Projects contain settings and data generated/processed by Proxima. They are stored in a single database on disk.
         </Typography>
         <Box my={4}>
           <Divider />

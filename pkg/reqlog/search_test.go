@@ -3,8 +3,8 @@ package reqlog_test
 import (
 	"testing"
 
-	"github.com/dstotijn/hetty/pkg/filter"
-	"github.com/dstotijn/hetty/pkg/reqlog"
+	"github.com/utkarshrai2811/proxima/pkg/filter"
+	"github.com/utkarshrai2811/proxima/pkg/reqlog"
 )
 
 func TestRequestLogMatch(t *testing.T) {

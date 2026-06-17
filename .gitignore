@@ -1,6 +1,7 @@
 *.vscode
 /dist
-/hetty
-/cmd/hetty/admin
+/proxima
+/cmd/proxima/admin
 *.pem
 *.test
+.env

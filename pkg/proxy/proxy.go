@@ -16,7 +16,7 @@ import (
 
 	"github.com/oklog/ulid"
 
-	"github.com/dstotijn/hetty/pkg/log"
+	"github.com/utkarshrai2811/proxima/pkg/log"
 )
 
 //nolint:gosec

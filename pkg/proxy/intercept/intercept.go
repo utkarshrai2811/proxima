@@ -10,9 +10,9 @@ import (
 
 	"github.com/oklog/ulid"
 
-	"github.com/dstotijn/hetty/pkg/filter"
-	"github.com/dstotijn/hetty/pkg/log"
-	"github.com/dstotijn/hetty/pkg/proxy"
+	"github.com/utkarshrai2811/proxima/pkg/filter"
+	"github.com/utkarshrai2811/proxima/pkg/log"
+	"github.com/utkarshrai2811/proxima/pkg/proxy"
 )
 
 var (

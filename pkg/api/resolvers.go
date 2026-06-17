@@ -18,13 +18,13 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
-	"github.com/dstotijn/hetty/pkg/filter"
-	"github.com/dstotijn/hetty/pkg/proj"
-	"github.com/dstotijn/hetty/pkg/proxy"
-	"github.com/dstotijn/hetty/pkg/proxy/intercept"
-	"github.com/dstotijn/hetty/pkg/reqlog"
-	"github.com/dstotijn/hetty/pkg/scope"
-	"github.com/dstotijn/hetty/pkg/sender"
+	"github.com/utkarshrai2811/proxima/pkg/filter"
+	"github.com/utkarshrai2811/proxima/pkg/proj"
+	"github.com/utkarshrai2811/proxima/pkg/proxy"
+	"github.com/utkarshrai2811/proxima/pkg/proxy/intercept"
+	"github.com/utkarshrai2811/proxima/pkg/reqlog"
+	"github.com/utkarshrai2811/proxima/pkg/scope"
+	"github.com/utkarshrai2811/proxima/pkg/sender"
 )
 
 var httpProtocolMap = map[string]HTTPProtocol{

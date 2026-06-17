@@ -1,4 +1,4 @@
-module github.com/dstotijn/hetty
+module github.com/utkarshrai2811/proxima
 
 go 1.23
 

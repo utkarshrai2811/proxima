@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/dstotijn/hetty/pkg/filter"
+	"github.com/utkarshrai2811/proxima/pkg/filter"
 )
 
 func TestExpressionString(t *testing.T) {

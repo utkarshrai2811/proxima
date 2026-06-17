@@ -1,108 +1,96 @@
+# Minimal Proxima GoReleaser config — finalized in Phase 5.
+#
+# Distribution uses `homebrew_casks:` (Homebrew Cask), NOT `brews:` (Formula).
+# Casks are the correct primitive for pre-built binaries; switching from a
+# Formula to a Cask later silently breaks `brew upgrade` for existing users.
+# See PROXIMA_PLAN.md §Distribution.
+version: 2
+
+project_name: proxima
+
 before:
   hooks:
-    - make clean
-    - sh -c "NEXT_PUBLIC_VERSION={{ .Version}} make build-admin"
     - go mod tidy
+    - sh -c "cd admin && npm ci && npm run build"
 
 builds:
-  - env:
+  - id: proxima
+    main: ./cmd/proxima
+    binary: proxima
+    env:
       - CGO_ENABLED=0
-    main: ./cmd/hetty
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
     goos:
       - linux
-      - windows
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64 # excluded: no meaningful adoption
 
 archives:
-  - replacements:
-      darwin: macOS
-      linux: Linux
-      windows: Windows
-      amd64: x86_64
+  - id: default
+    builds: [proxima]
+    format: tar.gz
     format_overrides:
       - goos: windows
         format: zip
-
-brews:
-  - tap:
-      owner: hettysoft
-      name: homebrew-tap
-    folder: Formula
-    homepage:  https://hetty.xyz
-    description: An HTTP toolkit for security research.
-    license: MIT
-    commit_author:
-      name: David Stotijn
-      email: dstotijn@gmail.com
-    test: |
-      system "#{bin}/hetty -v"
-
-snapcrafts:
-  - publish: true
-    summary: An HTTP toolkit for security research.
-    description: |
-      Hetty is an HTTP toolkit for security research. It aims to become an open
-      source alternative to commercial software like Burp Suite Pro, with
-      powerful features tailored to the needs of the infosec and bug bounty
-      community.
-    grade: stable
-    confinement: strict
-    license: MIT
-    apps:
-      hetty:
-        command: hetty
-        plugs: ["network", "network-bind"]
-
-scoop:
-  bucket:
-    owner: hettysoft
-    name: scoop-bucket
-  commit_author:
-    name: David Stotijn
-    email: dstotijn@gmail.com
-  homepage:  https://hetty.xyz
-  description: An HTTP toolkit for security research.
-  license: MIT
-
-dockers:
-  - extra_files:
-    - go.mod
-    - go.sum
-    - pkg
-    - cmd
-    - admin
-    image_templates:
-    - "ghcr.io/dstotijn/hetty:{{ .Version }}"
-    - "ghcr.io/dstotijn/hetty:{{ .Major }}"
-    - "ghcr.io/dstotijn/hetty:{{ .Major }}.{{ .Minor }}"
-    - "ghcr.io/dstotijn/hetty:latest"
-    - "dstotijn/hetty:{{ .Version }}"
-    - "dstotijn/hetty:{{ .Major }}"
-    - "dstotijn/hetty:{{ .Major }}.{{ .Minor }}"
-    - "dstotijn/hetty:latest"
-    build_flag_templates:
-    - "--pull"
-    - "--label=org.opencontainers.image.created={{.Date}}"
-    - "--label=org.opencontainers.image.title={{.ProjectName}}"
-    - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-    - "--label=org.opencontainers.image.version={{.Version}}"
-    - "--label=org.opencontainers.image.source=https://github.com/dstotijn/hetty"
-    - "--build-arg=HETTY_VERSION={{.Version}}"
+    name_template: "proxima_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
 
 checksum:
-  name_template: "checksums.txt"
+  name_template: "proxima_checksums.txt"
+  algorithm: sha256
 
-snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+# Homebrew Cask — correct primitive for pre-built binaries.
+# DO NOT use `brews:` (Formula) — see PROXIMA_PLAN.md §Distribution.
+homebrew_casks:
+  - repository:
+      owner: utkarshrai2811
+      name: homebrew-proxima
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_author:
+      name: utkarshrai2811
+      email: utkarshr2811@gmail.com
+    homepage: "https://github.com/utkarshrai2811/proxima"
+    description: "Open-source HTTP toolkit for security research"
+    license: MIT
+    skip_upload: auto
+
+# Scoop bucket (Windows)
+scoops:
+  - repository:
+      owner: utkarshrai2811
+      name: scoop-proxima
+      token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
+    commit_author:
+      name: utkarshrai2811
+      email: utkarshr2811@gmail.com
+    homepage: "https://github.com/utkarshrai2811/proxima"
+    description: "Open-source HTTP toolkit for security research"
+    license: MIT
+    skip_upload: auto
 
 changelog:
   sort: asc
+  use: github
   filters:
     exclude:
       - "^docs:"
       - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: utkarshrai2811
+    name: proxima
+  draft: true
+  prerelease: auto
+  name_template: "Proxima v{{.Version}}"

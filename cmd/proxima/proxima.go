@@ -22,15 +22,16 @@ import (
 	"go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
-	"github.com/dstotijn/hetty/pkg/api"
-	"github.com/dstotijn/hetty/pkg/chrome"
-	"github.com/dstotijn/hetty/pkg/db/bolt"
-	"github.com/dstotijn/hetty/pkg/proj"
-	"github.com/dstotijn/hetty/pkg/proxy"
-	"github.com/dstotijn/hetty/pkg/proxy/intercept"
-	"github.com/dstotijn/hetty/pkg/reqlog"
-	"github.com/dstotijn/hetty/pkg/scope"
-	"github.com/dstotijn/hetty/pkg/sender"
+	"github.com/utkarshrai2811/proxima/pkg/api"
+	"github.com/utkarshrai2811/proxima/pkg/chrome"
+	"github.com/utkarshrai2811/proxima/pkg/config"
+	"github.com/utkarshrai2811/proxima/pkg/db/bolt"
+	"github.com/utkarshrai2811/proxima/pkg/proj"
+	"github.com/utkarshrai2811/proxima/pkg/proxy"
+	"github.com/utkarshrai2811/proxima/pkg/proxy/intercept"
+	"github.com/utkarshrai2811/proxima/pkg/reqlog"
+	"github.com/utkarshrai2811/proxima/pkg/scope"
+	"github.com/utkarshrai2811/proxima/pkg/sender"
 )
 
 var version = "0.0.0"
@@ -41,16 +42,16 @@ var version = "0.0.0"
 //go:embed admin/_next/static/*/*.js
 var adminContent embed.FS
 
-var hettyUsage = `
+var proximaUsage = `
 Usage:
-    hetty [flags] [subcommand] [flags]
+    proxima [flags] [subcommand] [flags]
 
 Runs an HTTP server with (MITM) proxy, GraphQL service, and a web based admin interface.
 
 Options:
-    --cert         Path to root CA certificate. Creates file if it doesn't exist. (Default: "~/.hetty/hetty_cert.pem")
-    --key          Path to root CA private key. Creates file if it doesn't exist. (Default: "~/.hetty/hetty_key.pem")
-    --db           Database file path. Creates file if it doesn't exist. (Default: "~/.hetty/hetty.db")
+    --cert         Path to root CA certificate. Creates file if it doesn't exist. (Default: <data dir>/proxima_cert.pem)
+    --key          Path to root CA private key. Creates file if it doesn't exist. (Default: <data dir>/proxima_key.pem)
+    --db           Database file path. Creates file if it doesn't exist. (Default: <data dir>/proxima.db)
     --addr         TCP address for HTTP server to listen on, in the form \"host:port\". (Default: ":8080")
     --chrome       Launch Chrome with proxy settings applied and certificate errors ignored. (Default: false)
     --verbose      Enable verbose logging.
@@ -58,15 +59,20 @@ Options:
     --version, -v  Output version.
     --help, -h     Output this usage text.
 
+The data directory is platform-specific:
+    macOS:   ~/Library/Application Support/proxima
+    Linux:   $XDG_CONFIG_HOME/proxima (or ~/.config/proxima)
+    Windows: %APPDATA%\proxima
+
 Subcommands:
     - cert  Certificate management
 
-Run ` + "`hetty <subcommand> --help`" + ` for subcommand specific usage instructions.
+Run ` + "`proxima <subcommand> --help`" + ` for subcommand specific usage instructions.
 
-Visit https://hetty.xyz to learn more about Hetty.
+Visit https://github.com/utkarshrai2811/proxima to learn more about Proxima.
 `
 
-type HettyCommand struct {
+type ProximaCommand struct {
 	config *Config
 
 	cert    string
@@ -77,18 +83,18 @@ type HettyCommand struct {
 	version bool
 }
 
-func NewHettyCommand() (*ffcli.Command, *Config) {
-	cmd := HettyCommand{
+func NewProximaCommand() (*ffcli.Command, *Config) {
+	cmd := ProximaCommand{
 		config: &Config{},
 	}
 
-	fs := flag.NewFlagSet("hetty", flag.ExitOnError)
+	fs := flag.NewFlagSet("proxima", flag.ExitOnError)
 
-	fs.StringVar(&cmd.cert, "cert", "~/.hetty/hetty_cert.pem",
+	fs.StringVar(&cmd.cert, "cert", config.CertPath(),
 		"Path to root CA certificate. Creates a new certificate if file doesn't exist.")
-	fs.StringVar(&cmd.key, "key", "~/.hetty/hetty_key.pem",
+	fs.StringVar(&cmd.key, "key", config.KeyPath(),
 		"Path to root CA private key. Creates a new private key if file doesn't exist.")
-	fs.StringVar(&cmd.db, "db", "~/.hetty/hetty.db", "Database file path. Creates file if it doesn't exist.")
+	fs.StringVar(&cmd.db, "db", config.DBPath(), "Database file path. Creates file if it doesn't exist.")
 	fs.StringVar(&cmd.addr, "addr", ":8080", "TCP address to listen on, in the form \"host:port\".")
 	fs.BoolVar(&cmd.chrome, "chrome", false, "Launch Chrome with proxy settings applied and certificate errors ignored.")
 	fs.BoolVar(&cmd.version, "version", false, "Output version.")
@@ -97,19 +103,19 @@ func NewHettyCommand() (*ffcli.Command, *Config) {
 	cmd.config.RegisterFlags(fs)
 
 	return &ffcli.Command{
-		Name:    "hetty",
+		Name:    "proxima",
 		FlagSet: fs,
 		Subcommands: []*ffcli.Command{
 			NewCertCommand(cmd.config),
 		},
 		Exec: cmd.Exec,
 		UsageFunc: func(*ffcli.Command) string {
-			return hettyUsage
+			return proximaUsage
 		},
 	}, cmd.config
 }
 
-func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
+func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
 
@@ -217,13 +223,13 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 		host, _, _ := net.SplitHostPort(req.Host)
 
 		// Serve local admin routes when either:
-		// - The `Host` is well-known, e.g. `hetty.proxy`, `localhost:[port]`
+		// - The `Host` is well-known, e.g. `proxima.proxy`, `localhost:[port]`
 		//   or the listen addr `[host]:[port]`.
 		// - The request is not for TLS proxying (e.g. no `CONNECT`) and not
 		//   for proxying an external URL. E.g. Request-Line (RFC 7230, Section 3.1.1)
 		//   has no scheme.
 		return strings.EqualFold(host, hostname) ||
-			req.Host == "hetty.proxy" ||
+			req.Host == "proxima.proxy" ||
 			req.Host == fmt.Sprintf("%v:%v", "localhost", listenPort) ||
 			req.Host == fmt.Sprintf("%v:%v", listenHost, listenPort) ||
 			req.Method != http.MethodConnect && !strings.HasPrefix(req.RequestURI, "http://")
@@ -252,7 +258,7 @@ func (cmd *HettyCommand) Exec(ctx context.Context, _ []string) error {
 	}
 
 	go func() {
-		mainLogger.Info(fmt.Sprintf("Hetty (v%v) is running on %v ...", version, cmd.addr))
+		mainLogger.Info(fmt.Sprintf("Proxima (v%v) is running on %v ...", version, cmd.addr))
 		mainLogger.Info(fmt.Sprintf("\x1b[%dm%s\x1b[0m", uint8(32), "Get started at "+url))
 
 		err := httpServer.ListenAndServe()

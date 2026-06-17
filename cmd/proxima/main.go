@@ -9,13 +9,13 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/dstotijn/hetty/pkg/log"
+	"github.com/utkarshrai2811/proxima/pkg/log"
 )
 
 func main() {
-	hettyCmd, cfg := NewHettyCommand()
+	proximaCmd, cfg := NewProximaCommand()
 
-	if err := hettyCmd.Parse(os.Args[1:]); err != nil {
+	if err := proximaCmd.Parse(os.Args[1:]); err != nil {
 		llog.Fatalf("Failed to parse command line arguments: %v", err)
 	}
 
@@ -28,7 +28,7 @@ func main() {
 
 	cfg.logger = logger
 
-	err = hettyCmd.Run(context.Background())
+	err = proximaCmd.Run(context.Background())
 	if err != nil && !errors.Is(err, flag.ErrHelp) {
 		logger.Fatal("Command failed.", zap.Error(err))
 	}

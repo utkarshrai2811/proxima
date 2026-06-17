@@ -170,7 +170,7 @@ export default function Settings(): JSX.Element {
         Settings
       </Typography>
       <Typography paragraph sx={{ mb: 4 }}>
-        Settings allow you to tweak the behaviour of Hetty’s features.
+        Settings allow you to tweak the behaviour of Proxima’s features.
       </Typography>
       <Typography variant="h5" sx={{ mb: 2 }}>
         Project settings
@@ -220,7 +220,7 @@ export default function Settings(): JSX.Element {
                   <FormHelperText>
                     Filter expression to match incoming requests on. When set, only matching requests are intercepted.{" "}
                     <MaterialLink
-                      href="https://hetty.xyz/docs/guides/intercept?utm_source=hettyapp#request-filter"
+                      href="https://github.com/utkarshrai2811/proxima"
                       target="_blank"
                     >
                       Read docs.
@@ -275,7 +275,7 @@ export default function Settings(): JSX.Element {
                   <FormHelperText>
                     Filter expression to match received responses on. When set, only matching responses are intercepted.{" "}
                     <MaterialLink
-                      href="https://hetty.xyz/docs/guides/intercept/?utm_source=hettyapp#response-filter"
+                      href="https://github.com/utkarshrai2811/proxima"
                       target="_blank"
                     >
                       Read docs.
