@@ -47,6 +47,27 @@ The data directory (certificate, key, and database) is platform-specific:
 | Linux   | `$XDG_CONFIG_HOME/proxima` (or `~/.config/proxima`) |
 | Windows | `%APPDATA%\proxima`                                 |
 
+## Authentication
+
+By default, Proxima's admin interface has no authentication (suitable for local,
+single-user use). To enable it:
+
+```sh
+proxima --api-key=auto          # generate a random key (printed once on startup)
+proxima --api-key=mysecretkey   # use a specific key
+```
+
+When enabled, present the key via any of:
+
+- Header: `X-Proxima-Api-Key: <key>`
+- Header: `Authorization: Bearer <key>`
+- The login page at `/login` (sets an `HttpOnly`, `SameSite=Strict` session cookie)
+
+The `/login`, `/api/auth/login`, and `/health` endpoints are always exempt.
+
+**The proxy traffic endpoint is never gated by authentication** — only the admin
+UI and GraphQL API are.
+
 ## Credits
 
 Proxima is a fork of [Hetty](https://github.com/dstotijn/hetty) by

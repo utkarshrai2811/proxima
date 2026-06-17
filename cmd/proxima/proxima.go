@@ -57,6 +57,8 @@ Options:
                      DNS rebinding. The proxy endpoint is never gated. (Default: "localhost,127.0.0.1")
     --max-body-size  Maximum request/response body size stored in the log, e.g. "10MB", "1GB".
                      The full body is still forwarded. Use 0 for no limit. (Default: "10MB")
+    --api-key      API key for the admin UI/API. Empty disables auth (default). Use "auto" to
+                   generate a random key, printed on startup. The proxy endpoint is never gated.
     --chrome       Launch Chrome with proxy settings applied and certificate errors ignored. (Default: false)
     --verbose      Enable verbose logging.
     --json         Encode logs as JSON, instead of pretty/human readable output.
@@ -85,6 +87,7 @@ type ProximaCommand struct {
 	addr         string
 	allowedHosts string
 	maxBodySize  string
+	apiKey       string
 	chrome       bool
 	version      bool
 }
@@ -108,6 +111,10 @@ func NewProximaCommand() (*ffcli.Command, *Config) {
 	fs.StringVar(&cmd.maxBodySize, "max-body-size", "10MB",
 		"Maximum request/response body size to store in the log (e.g. 10MB, 1GB). "+
 			"The full body is still forwarded. Use 0 for no limit.")
+	fs.StringVar(&cmd.apiKey, "api-key", "",
+		"API key for admin UI/API authentication. Empty disables auth (default). "+
+			"Set to \"auto\" to generate a random key, printed on startup. "+
+			"The proxy traffic endpoint is never gated.")
 	fs.BoolVar(&cmd.chrome, "chrome", false, "Launch Chrome with proxy settings applied and certificate errors ignored.")
 	fs.BoolVar(&cmd.version, "version", false, "Output version.")
 	fs.BoolVar(&cmd.version, "v", false, "Output version.")
@@ -141,6 +148,27 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 	maxBodyBytes, err := proxy.ParseBodySize(cmd.maxBodySize)
 	if err != nil {
 		mainLogger.Fatal("Invalid --max-body-size value.", zap.Error(err))
+	}
+
+	// Resolve "auto" into a freshly generated API key, printed once on startup.
+	if cmd.apiKey == "auto" {
+		key, err := api.GenerateAPIKey()
+		if err != nil {
+			mainLogger.Fatal("Failed to generate API key.", zap.Error(err))
+		}
+
+		cmd.apiKey = key
+
+		fmt.Println()
+		fmt.Println("  ──────────────────────────────────────────────────────────────────────")
+		fmt.Println("   Proxima API key (store it now — it is not saved and shown only once):")
+		fmt.Println()
+		fmt.Printf("     %s\n", key)
+		fmt.Println()
+		fmt.Println("   Send it via 'X-Proxima-Api-Key: <key>', 'Authorization: Bearer <key>',")
+		fmt.Println("   or sign in at /login.")
+		fmt.Println("  ──────────────────────────────────────────────────────────────────────")
+		fmt.Println()
 	}
 
 	listenHost, listenPort, err := net.SplitHostPort(cmd.addr)
@@ -263,6 +291,24 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 	adminRouter.Use(func(next http.Handler) http.Handler {
 		return api.HostAllowlistMiddleware(allowedHosts, next)
 	})
+
+	// Require an API key for the admin UI and API when one is configured.
+	// /login, /api/auth/login, and /health are exempt (see AuthMiddleware).
+	adminRouter.Use(func(next http.Handler) http.Handler {
+		return api.AuthMiddleware(cmd.apiKey, next)
+	})
+
+	// Health endpoint for monitoring (exempt from auth).
+	adminRouter.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	})
+
+	// Login routes are only meaningful when auth is enabled.
+	if cmd.apiKey != "" {
+		adminRouter.Path("/login").Handler(api.LoginPageHandler())
+		adminRouter.Path("/api/auth/login").Handler(api.LoginHandler(cmd.apiKey))
+	}
 
 	// GraphQL server.
 	gqlEndpoint := "/api/graphql/"

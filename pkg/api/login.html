@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proxima — Sign in</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #111111;
+      border: 1px solid #222222;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 380px;
+    }
+    .logo { color: #00ff88; font-size: 1.4rem; font-weight: 700; letter-spacing: 0.1em; margin-bottom: 0.2rem; }
+    .sub  { color: #888888; font-size: 0.72rem; margin-bottom: 2rem; }
+    label { display: block; font-size: 0.72rem; color: #888888; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+    input[type="password"] {
+      width: 100%; background: #0a0a0a; border: 1px solid #222222;
+      color: #e0e0e0; font-family: inherit; font-size: 0.9rem;
+      padding: 0.65rem 0.75rem; outline: none; transition: border-color 0.15s;
+    }
+    input[type="password"]:focus { border-color: #00ff88; }
+    button {
+      width: 100%; margin-top: 1rem; background: #00ff88; border: none;
+      color: #0a0a0a; font-family: inherit; font-size: 0.82rem; font-weight: 700;
+      letter-spacing: 0.06em; padding: 0.65rem; cursor: pointer;
+      text-transform: uppercase; transition: background 0.15s;
+    }
+    button:hover { background: #00cc66; }
+    button:disabled { background: #222222; color: #555; cursor: not-allowed; }
+    .err { color: #ff4444; font-size: 0.78rem; margin-top: 0.75rem; display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">PROXIMA</div>
+    <div class="sub">HTTP toolkit for security research</div>
+    <label for="key">API Key</label>
+    <input type="password" id="key" placeholder="Enter your API key" autofocus autocomplete="current-password">
+    <button id="btn">Sign in</button>
+    <div class="err" id="err">Invalid API key. Try again.</div>
+  </div>
+  <script>
+    const btn = document.getElementById('btn');
+    const key = document.getElementById('key');
+    const err = document.getElementById('err');
+
+    async function login() {
+      const k = key.value.trim();
+      if (!k) return;
+      btn.disabled = true;
+      err.style.display = 'none';
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: k })
+        });
+        if (res.ok) {
+          window.location.href = '/';
+        } else {
+          err.style.display = 'block';
+          key.select();
+        }
+      } catch (e) {
+        err.textContent = 'Connection error. Is the proxy running?';
+        err.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    btn.addEventListener('click', login);
+    key.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+  </script>
+</body>
+</html>
