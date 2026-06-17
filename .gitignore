@@ -5,3 +5,5 @@
 *.pem
 *.test
 .env
+/admin/dist
+/admin/node_modules
