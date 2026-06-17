@@ -55,6 +55,8 @@ Options:
     --addr         TCP address for HTTP server to listen on, in the form \"host:port\". (Default: ":8080")
     --allowed-hosts  Comma-separated allowed Host header values for the admin UI, to prevent
                      DNS rebinding. The proxy endpoint is never gated. (Default: "localhost,127.0.0.1")
+    --max-body-size  Maximum request/response body size stored in the log, e.g. "10MB", "1GB".
+                     The full body is still forwarded. Use 0 for no limit. (Default: "10MB")
     --chrome       Launch Chrome with proxy settings applied and certificate errors ignored. (Default: false)
     --verbose      Enable verbose logging.
     --json         Encode logs as JSON, instead of pretty/human readable output.
@@ -82,6 +84,7 @@ type ProximaCommand struct {
 	db           string
 	addr         string
 	allowedHosts string
+	maxBodySize  string
 	chrome       bool
 	version      bool
 }
@@ -102,6 +105,9 @@ func NewProximaCommand() (*ffcli.Command, *Config) {
 	fs.StringVar(&cmd.allowedHosts, "allowed-hosts", "localhost,127.0.0.1",
 		"Comma-separated list of allowed Host header values for the admin UI. "+
 			"Prevents DNS rebinding attacks. The proxy traffic endpoint is never gated.")
+	fs.StringVar(&cmd.maxBodySize, "max-body-size", "10MB",
+		"Maximum request/response body size to store in the log (e.g. 10MB, 1GB). "+
+			"The full body is still forwarded. Use 0 for no limit.")
 	fs.BoolVar(&cmd.chrome, "chrome", false, "Launch Chrome with proxy settings applied and certificate errors ignored.")
 	fs.BoolVar(&cmd.version, "version", false, "Output version.")
 	fs.BoolVar(&cmd.version, "v", false, "Output version.")
@@ -131,6 +137,11 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 	}
 
 	mainLogger := cmd.config.logger.Named("main")
+
+	maxBodyBytes, err := proxy.ParseBodySize(cmd.maxBodySize)
+	if err != nil {
+		mainLogger.Fatal("Invalid --max-body-size value.", zap.Error(err))
+	}
 
 	listenHost, listenPort, err := net.SplitHostPort(cmd.addr)
 	if err != nil {
@@ -178,9 +189,10 @@ func (cmd *ProximaCommand) Exec(ctx context.Context, _ []string) error {
 	scope := &scope.Scope{}
 
 	reqLogService := reqlog.NewService(reqlog.Config{
-		Scope:      scope,
-		Repository: boltDB,
-		Logger:     cmd.config.logger.Named("reqlog").Sugar(),
+		Scope:       scope,
+		Repository:  boltDB,
+		Logger:      cmd.config.logger.Named("reqlog").Sugar(),
+		MaxBodySize: maxBodyBytes,
 	})
 
 	interceptService := intercept.NewService(intercept.Config{

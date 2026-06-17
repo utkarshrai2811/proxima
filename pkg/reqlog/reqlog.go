@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 
@@ -39,6 +38,8 @@ type RequestLog struct {
 	Proto  string
 	Header http.Header
 	Body   []byte
+	// Truncated is true when Body was capped at the configured max body size.
+	Truncated bool
 
 	Response *ResponseLog
 }
@@ -49,6 +50,8 @@ type ResponseLog struct {
 	Status     string
 	Header     http.Header
 	Body       []byte
+	// Truncated is true when Body was capped at the configured max body size.
+	Truncated bool
 }
 
 type Service struct {
@@ -58,6 +61,7 @@ type Service struct {
 	scope                    *scope.Scope
 	repo                     Repository
 	logger                   log.Logger
+	maxBodySize              int64
 }
 
 type FindRequestsFilter struct {
@@ -71,6 +75,9 @@ type Config struct {
 	Scope           *scope.Scope
 	Repository      Repository
 	Logger          log.Logger
+	// MaxBodySize caps the number of request/response body bytes stored in the
+	// log. A value <= 0 means no limit. The full body is still forwarded.
+	MaxBodySize int64
 }
 
 func NewService(cfg Config) *Service {
@@ -79,6 +86,7 @@ func NewService(cfg Config) *Service {
 		repo:            cfg.Repository,
 		scope:           cfg.Scope,
 		logger:          cfg.Logger,
+		maxBodySize:     cfg.MaxBodySize,
 	}
 
 	if s.logger == nil {
@@ -100,36 +108,30 @@ func (svc *Service) ClearRequests(ctx context.Context, projectID ulid.ULID) erro
 	return svc.repo.ClearRequestLogs(ctx, projectID)
 }
 
-func (svc *Service) storeResponse(ctx context.Context, reqLogID ulid.ULID, res *http.Response) error {
-	resLog, err := ParseHTTPResponse(res)
-	if err != nil {
-		return err
-	}
-
-	return svc.repo.StoreResponseLog(ctx, svc.activeProjectID, reqLogID, resLog)
-}
-
 func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestModifyFunc {
 	return func(req *http.Request) {
 		next(req)
 
 		clone := req.Clone(req.Context())
 
-		var body []byte
+		var (
+			body      []byte
+			truncated bool
+		)
 
 		if req.Body != nil {
-			// TODO: Use io.LimitReader.
-			var err error
-
-			body, err = ioutil.ReadAll(req.Body)
+			logged, trunc, full, err := readBodyForLogging(req.Body, svc.maxBodySize)
 			if err != nil {
 				svc.logger.Errorw("Failed to read request body for logging.",
 					"error", err)
 				return
 			}
 
-			req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-			clone.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+			body = logged
+			truncated = trunc
+			// Restore the full body so it is forwarded to the target intact.
+			req.Body = io.NopCloser(full)
+			clone.Body = io.NopCloser(bytes.NewReader(logged))
 		}
 
 		// Bypass logging if no project is active.
@@ -169,6 +171,7 @@ func (svc *Service) RequestModifier(next proxy.RequestModifyFunc) proxy.RequestM
 			Proto:     clone.Proto,
 			Header:    clone.Header,
 			Body:      body,
+			Truncated: truncated,
 		}
 
 		err := svc.repo.StoreRequestLog(req.Context(), reqLog)
@@ -202,21 +205,27 @@ func (svc *Service) ResponseModifier(next proxy.ResponseModifyFunc) proxy.Respon
 			return errors.New("reqlog: request is missing ID")
 		}
 
-		clone := *res
+		resLog := ResponseLog{
+			Proto:      res.Proto,
+			StatusCode: res.StatusCode,
+			Status:     res.Status,
+			Header:     res.Header,
+		}
 
 		if res.Body != nil {
-			// TODO: Use io.LimitReader.
-			body, err := io.ReadAll(res.Body)
+			logged, truncated, full, err := readBodyForLogging(res.Body, svc.maxBodySize)
 			if err != nil {
 				return fmt.Errorf("reqlog: could not read response body: %w", err)
 			}
 
-			res.Body = io.NopCloser(bytes.NewBuffer(body))
-			clone.Body = io.NopCloser(bytes.NewBuffer(body))
+			resLog.Body = logged
+			resLog.Truncated = truncated
+			// Restore the full body so it is forwarded to the client intact.
+			res.Body = io.NopCloser(full)
 		}
 
 		go func() {
-			if err := svc.storeResponse(context.Background(), reqLogID, &clone); err != nil {
+			if err := svc.repo.StoreResponseLog(context.Background(), svc.activeProjectID, reqLogID, resLog); err != nil {
 				svc.logger.Errorw("Failed to store response log.",
 					"error", err)
 			} else {
@@ -251,6 +260,34 @@ func (svc *Service) SetBypassOutOfScopeRequests(bypass bool) {
 
 func (svc *Service) BypassOutOfScopeRequests() bool {
 	return svc.bypassOutOfScopeRequests
+}
+
+// readBodyForLogging reads a body for logging, capped at maxBodySize bytes. It
+// returns the bytes to log (truncated if needed), whether truncation occurred,
+// and a reader that yields the FULL original body so the proxy can still
+// forward it intact. A maxBodySize <= 0 means no limit.
+func readBodyForLogging(body io.ReadCloser, maxBodySize int64) (logged []byte, truncated bool, full io.Reader, err error) {
+	if maxBodySize <= 0 {
+		data, err := io.ReadAll(body)
+		if err != nil {
+			return nil, false, nil, err
+		}
+
+		return data, false, bytes.NewReader(data), nil
+	}
+
+	// Read one extra byte to detect whether the body exceeds the limit.
+	data, err := io.ReadAll(io.LimitReader(body, maxBodySize+1))
+	if err != nil {
+		return nil, false, nil, err
+	}
+
+	if int64(len(data)) > maxBodySize {
+		// Forward the full body: the prefix we already read plus the remainder.
+		return data[:maxBodySize], true, io.MultiReader(bytes.NewReader(data), body), nil
+	}
+
+	return data, false, bytes.NewReader(data), nil
 }
 
 func ParseHTTPResponse(res *http.Response) (ResponseLog, error) {
