@@ -287,38 +287,12 @@ func (r *mutationResolver) SetScope(ctx context.Context, input []ScopeRuleInput)
 	rules := make([]scope.Rule, len(input))
 
 	for i, rule := range input {
-		u, err := stringPtrToRegexp(rule.URL)
+		converted, err := scopeRuleInputToRule(rule)
 		if err != nil {
-			return nil, fmt.Errorf("invalid URL in scope rule: %w", err)
+			return nil, err
 		}
 
-		var headerKey, headerValue *regexp.Regexp
-
-		if rule.Header != nil {
-			headerKey, err = stringPtrToRegexp(rule.Header.Key)
-			if err != nil {
-				return nil, fmt.Errorf("invalid header key in scope rule: %w", err)
-			}
-
-			headerValue, err = stringPtrToRegexp(rule.Header.Key)
-			if err != nil {
-				return nil, fmt.Errorf("invalid header value in scope rule: %w", err)
-			}
-		}
-
-		body, err := stringPtrToRegexp(rule.Body)
-		if err != nil {
-			return nil, fmt.Errorf("invalid body in scope rule: %w", err)
-		}
-
-		rules[i] = scope.Rule{
-			URL: u,
-			Header: scope.Header{
-				Key:   headerKey,
-				Value: headerValue,
-			},
-			Body: body,
-		}
+		rules[i] = converted
 	}
 
 	err := r.ProjectService.SetScopeRules(ctx, rules)
@@ -327,6 +301,43 @@ func (r *mutationResolver) SetScope(ctx context.Context, input []ScopeRuleInput)
 	}
 
 	return scopeToScopeRules(rules), nil
+}
+
+// scopeRuleInputToRule converts a GraphQL ScopeRuleInput into a scope.Rule,
+// compiling the URL, header key, header value, and body patterns.
+func scopeRuleInputToRule(rule ScopeRuleInput) (scope.Rule, error) {
+	u, err := stringPtrToRegexp(rule.URL)
+	if err != nil {
+		return scope.Rule{}, fmt.Errorf("invalid URL in scope rule: %w", err)
+	}
+
+	var headerKey, headerValue *regexp.Regexp
+
+	if rule.Header != nil {
+		headerKey, err = stringPtrToRegexp(rule.Header.Key)
+		if err != nil {
+			return scope.Rule{}, fmt.Errorf("invalid header key in scope rule: %w", err)
+		}
+
+		headerValue, err = stringPtrToRegexp(rule.Header.Value)
+		if err != nil {
+			return scope.Rule{}, fmt.Errorf("invalid header value in scope rule: %w", err)
+		}
+	}
+
+	body, err := stringPtrToRegexp(rule.Body)
+	if err != nil {
+		return scope.Rule{}, fmt.Errorf("invalid body in scope rule: %w", err)
+	}
+
+	return scope.Rule{
+		URL: u,
+		Header: scope.Header{
+			Key:   headerKey,
+			Value: headerValue,
+		},
+		Body: body,
+	}, nil
 }
 
 func (r *queryResolver) HTTPRequestLogFilter(ctx context.Context) (*HTTPRequestLogFilter, error) {
