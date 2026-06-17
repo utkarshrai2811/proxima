@@ -2,9 +2,9 @@ package sender_test
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -22,8 +22,9 @@ import (
 	"github.com/utkarshrai2811/proxima/pkg/sender"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+// ulidEntropy must be safe for concurrent use by parallel tests;
+// crypto/rand.Reader is, a shared *math/rand.Rand is not.
+var ulidEntropy = rand.Reader
 
 var exampleURL = func() *url.URL {
 	u, err := url.Parse("https://example.com/foobar")

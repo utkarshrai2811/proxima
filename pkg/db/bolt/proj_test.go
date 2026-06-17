@@ -3,9 +3,9 @@ package bolt_test
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/gob"
 	"errors"
-	"math/rand"
 	"regexp"
 	"testing"
 	"time"
@@ -21,8 +21,9 @@ import (
 	"github.com/utkarshrai2811/proxima/pkg/scope"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+// ulidEntropy must be safe for concurrent use by parallel tests;
+// crypto/rand.Reader is, a shared *math/rand.Rand is not.
+var ulidEntropy = rand.Reader
 
 var regexpCompareOpt = cmp.Comparer(func(x, y *regexp.Regexp) bool {
 	switch {

@@ -2,9 +2,9 @@ package proj
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
 	"regexp"
 	"sync"
 	"time"
@@ -18,8 +18,9 @@ import (
 	"github.com/utkarshrai2811/proxima/pkg/sender"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+// ulidEntropy must be safe for concurrent use; crypto/rand.Reader is, a shared
+// *math/rand.Rand is not.
+var ulidEntropy = rand.Reader
 
 type Service struct {
 	repo            Repository

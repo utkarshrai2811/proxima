@@ -2,8 +2,8 @@ package reqlog_test
 
 import (
 	"context"
+	"crypto/rand"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -21,8 +21,9 @@ import (
 	"github.com/utkarshrai2811/proxima/pkg/scope"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+// ulidEntropy must be safe for concurrent use by parallel tests;
+// crypto/rand.Reader is, a shared *math/rand.Rand is not.
+var ulidEntropy = rand.Reader
 
 //nolint:paralleltest
 func TestRequestModifier(t *testing.T) {

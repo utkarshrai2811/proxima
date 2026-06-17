@@ -3,9 +3,9 @@ package sender
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"time"
@@ -17,8 +17,9 @@ import (
 	"github.com/utkarshrai2811/proxima/pkg/scope"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+// ulidEntropy must be safe for concurrent use; crypto/rand.Reader is, a shared
+// *math/rand.Rand is not.
+var ulidEntropy = rand.Reader
 
 var defaultHTTPClient = &http.Client{
 	Transport: &HTTPTransport{},

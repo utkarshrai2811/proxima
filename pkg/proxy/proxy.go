@@ -3,11 +3,11 @@ package proxy
 import (
 	"context"
 	"crypto"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -19,8 +19,10 @@ import (
 	"github.com/utkarshrai2811/proxima/pkg/log"
 )
 
-//nolint:gosec
-var ulidEntropy = rand.New(rand.NewSource(time.Now().UnixNano()))
+// ulidEntropy must be safe for concurrent use; the proxy mints a request ID
+// per request from many goroutines. crypto/rand.Reader is concurrency-safe,
+// a shared *math/rand.Rand is not.
+var ulidEntropy = rand.Reader
 
 type contextKey int
 
