@@ -4,6 +4,9 @@
 
 [![CI](https://github.com/utkarshrai2811/proxima/actions/workflows/ci.yml/badge.svg)](https://github.com/utkarshrai2811/proxima/actions/workflows/ci.yml)
 [![Latest Release](https://img.shields.io/github/v/release/utkarshrai2811/proxima)](https://github.com/utkarshrai2811/proxima/releases/latest)
+[![Website](https://img.shields.io/badge/website-utkarshrai2811.github.io%2Fproxima-00ff88)](https://utkarshrai2811.github.io/proxima)
+
+**Website:** [utkarshrai2811.github.io/proxima](https://utkarshrai2811.github.io/proxima)
 
 Proxima is a machine-in-the-middle (MITM) HTTP proxy and security testing toolkit
 for penetration testers and bug bounty hunters. Single binary, runs locally, with
