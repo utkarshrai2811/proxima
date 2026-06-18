@@ -42,10 +42,24 @@ a web-based UI.
 
 ```bash
 brew tap utkarshrai2811/proxima
+brew trust utkarshrai2811/proxima      # one-time: Homebrew gates third-party taps
 brew install --cask proxima
+
+# Proxima is not yet Apple-notarized, so clear the quarantine flag once:
+xattr -d com.apple.quarantine "$(brew --prefix)/bin/proxima"
+
+proxima
 ```
 
-Upgrade: `brew update && brew upgrade --cask proxima`
+Upgrade: `brew update && brew upgrade --cask proxima` (re-run the `xattr` line after an upgrade replaces the binary).
+
+Two notes on the one-time steps above:
+
+- `brew trust` is only enforced when Homebrew's tap-trust mode is on. If your
+  `brew install` already succeeds, you can skip it; running it anyway is harmless.
+- The `xattr` line removes the "Apple could not verify proxima is free of malware"
+  Gatekeeper warning that macOS shows for any unsigned binary. Signing and
+  notarization are tracked for a future release.
 
 ### Windows — Scoop
 

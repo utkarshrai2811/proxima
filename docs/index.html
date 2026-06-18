@@ -400,10 +400,20 @@
         <button class="copy">copy</button>
 <pre><span class="cmt"># Homebrew (Apple Silicon and Intel)</span>
 brew tap utkarshrai2811/proxima
+brew trust utkarshrai2811/proxima      <span class="cmt"># one-time: Homebrew gates third-party taps</span>
 brew install --cask proxima
+
+<span class="cmt"># Proxima is not yet notarized, so clear the macOS quarantine flag once:</span>
+xattr -d com.apple.quarantine "$(brew --prefix)/bin/proxima"
 
 proxima</pre>
       </div>
+      <p class="install-note">
+        The trust and quarantine steps are one-time. Homebrew only enforces tap
+        trust when that mode is on, and running it otherwise is harmless. The
+        quarantine step clears the "Apple could not verify proxima" Gatekeeper
+        warning shown for any unsigned binary; redo it after a version upgrade.
+      </p>
     </div>
 
     <div class="panel" data-panel="win">
