@@ -1,53 +1,33 @@
-linters:
-  presets:
-    - bugs
-    - comment
-    - error
-    - format
-    - import
-    - metalinter
-    - module
-    - performance
-    - style
-    - test
-    - unused
-  disable:
-    - dupl
-    - exhaustive
-    - exhaustivestruct
-    - gochecknoglobals
-    - gochecknoinits
-    - godox
-    - goerr113
-    - gomnd
-    - interfacer
-    - maligned
-    - nilnil
-    - nlreturn
-    - scopelint 
-    - testpackage
-    - varnamelen
-    - wrapcheck
+# golangci-lint v2 configuration.
+# The standard, high-signal analyzer set (errcheck, govet, ineffassign,
+# staticcheck, unused). Generated code (gqlgen) is auto-excluded.
+version: "2"
 
-linters-settings:
-  gci:
-    local-prefixes: github.com/utkarshrai2811/proxima
-  godot:
-    capital: true
-  ireturn:
-    allow: "error,empty,anon,stdlib,.*(or|er)$,github.com/99designs/gqlgen/graphql.Marshaler,github.com/utkarshrai2811/proxima/pkg/api.QueryResolver,github.com/utkarshrai2811/proxima/pkg/filter.Expression"
-    
-issues:
-  exclude-rules:
-    - linters:
-      - gosec
-      # Ignore SHA1 usage.
-      text: "G(401|505):"
-    - linters:
-      - wsl
-      # Ignore cuddled defer statements.
-      text: "only one cuddle assignment allowed before defer statement"
-    - linters:
-      - nlreturn
-      # Ignore `break` without leading blank line.
-      text: "break with no blank line before"
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      # QF1001: De Morgan rewrite reduces readability of the intercept guard.
+      # S1016: the *DTO mappers are intentional API boundaries; an explicit
+      #        field-by-field literal documents the contract better than a cast.
+      - linters:
+          - staticcheck
+        text: "(QF1001|S1016)"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/utkarshrai2811/proxima

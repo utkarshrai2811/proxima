@@ -1,9 +1,10 @@
-# Minimal Proxima GoReleaser config — finalized in Phase 5.
+# Proxima GoReleaser configuration.
 #
 # Distribution uses `homebrew_casks:` (Homebrew Cask), NOT `brews:` (Formula).
 # Casks are the correct primitive for pre-built binaries; switching from a
 # Formula to a Cask later silently breaks `brew upgrade` for existing users.
-# See PROXIMA_PLAN.md §Distribution.
+# The cask is macOS-only — Homebrew refuses casks on Linux. Linux users install
+# via the .deb/.rpm/.apk packages (nfpms) or the tarball. See PROXIMA_PLAN.md.
 version: 2
 
 project_name: proxima
@@ -11,7 +12,10 @@ project_name: proxima
 before:
   hooks:
     - go mod tidy
+    # Build the admin UI and stage it where the Go binary embeds it
+    # (cmd/proxima/admin/dist, matching //go:embed all:admin/dist).
     - sh -c "cd admin && npm ci && npm run build"
+    - sh -c "rm -rf cmd/proxima/admin/dist && mkdir -p cmd/proxima/admin && cp -r admin/dist cmd/proxima/admin/dist"
 
 builds:
   - id: proxima
@@ -34,21 +38,43 @@ builds:
 
 archives:
   - id: default
-    builds: [proxima]
-    format: tar.gz
+    ids: [proxima]
+    formats: [tar.gz]
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
     name_template: "proxima_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
+      - CHANGELOG.md
+      - PLUGINS.md
+
+# Linux packages — built by GoReleaser and attached to the GitHub release.
+# Requires no extra repositories or secrets. The binary is CGO_ENABLED=0, so
+# these packages carry no dynamic-library dependencies.
+nfpms:
+  - id: packages
+    package_name: proxima
+    ids:
+      - proxima
+    formats:
+      - deb
+      - rpm
+      - apk
+    maintainer: "utkarshrai2811 <utkarshr2811@gmail.com>"
+    homepage: "https://github.com/utkarshrai2811/proxima"
+    description: "Open-source HTTP toolkit for security research"
+    license: MIT
+    bindir: /usr/bin
+    section: utils
 
 checksum:
   name_template: "proxima_checksums.txt"
   algorithm: sha256
 
-# Homebrew Cask — correct primitive for pre-built binaries.
-# DO NOT use `brews:` (Formula) — see PROXIMA_PLAN.md §Distribution.
+# Homebrew Cask (macOS) — correct primitive for pre-built binaries.
+# DO NOT use `brews:` (Formula), and DO NOT enable the cask auto-update flag
+# (it tells Homebrew the app self-updates, so `brew upgrade` would skip it).
 homebrew_casks:
   - repository:
       owner: utkarshrai2811
@@ -57,12 +83,15 @@ homebrew_casks:
     commit_author:
       name: utkarshrai2811
       email: utkarshr2811@gmail.com
+    commit_msg_template: "chore: update proxima to {{ .Tag }}"
     homepage: "https://github.com/utkarshrai2811/proxima"
     description: "Open-source HTTP toolkit for security research"
     license: MIT
+    # skip_upload: auto = skip for pre-release tags (e.g. v1.0.0-beta.1)
     skip_upload: auto
 
-# Scoop bucket (Windows)
+# Scoop bucket (Windows). GoReleaser auto-generates the manifest with the
+# correct version, URL, and hash, plus an autoupdate block for `scoop update`.
 scoops:
   - repository:
       owner: utkarshrai2811
@@ -71,6 +100,7 @@ scoops:
     commit_author:
       name: utkarshrai2811
       email: utkarshr2811@gmail.com
+    commit_msg_template: "chore: update proxima to {{ .Tag }}"
     homepage: "https://github.com/utkarshrai2811/proxima"
     description: "Open-source HTTP toolkit for security research"
     license: MIT
@@ -91,6 +121,47 @@ release:
   github:
     owner: utkarshrai2811
     name: proxima
+  # Create as a draft first — review before publishing.
   draft: true
   prerelease: auto
   name_template: "Proxima v{{.Version}}"
+  header: |
+    ## Proxima v{{.Version}}
+
+    See [CHANGELOG.md](https://github.com/utkarshrai2811/proxima/blob/main/CHANGELOG.md) for full details.
+
+    ### Install
+
+    **macOS (Homebrew Cask):**
+    ```bash
+    brew tap utkarshrai2811/proxima
+    brew install --cask proxima
+    ```
+
+    **Windows (Scoop):**
+    ```bash
+    scoop bucket add proxima https://github.com/utkarshrai2811/scoop-proxima
+    scoop install proxima
+    ```
+
+    **Linux (Debian/Ubuntu):**
+    ```bash
+    sudo dpkg -i proxima_{{.Version}}_linux_amd64.deb
+    ```
+
+    **Linux (Fedora/RHEL):**
+    ```bash
+    sudo rpm -i proxima_{{.Version}}_linux_amd64.rpm
+    ```
+
+    **Linux (Alpine):**
+    ```bash
+    sudo apk add --allow-untrusted proxima_{{.Version}}_linux_amd64.apk
+    ```
+
+    **All platforms (Go install):**
+    ```bash
+    go install github.com/utkarshrai2811/proxima/cmd/proxima@latest
+    ```
+
+    Or download a tarball/binary from the assets below.

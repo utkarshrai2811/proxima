@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"regexp"
 	"sort"
@@ -788,12 +787,12 @@ func parseHTTPRequest(req *http.Request) (HTTPRequest, error) {
 	}
 
 	if req.Body != nil {
-		body, err := ioutil.ReadAll(req.Body)
+		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			return HTTPRequest{}, fmt.Errorf("failed to read request body: %w", err)
 		}
 
-		req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+		req.Body = io.NopCloser(bytes.NewBuffer(body))
 		bodyStr := string(body)
 		httpReq.Body = &bodyStr
 	}
@@ -840,12 +839,12 @@ func parseHTTPResponse(res *http.Response) (HTTPResponse, error) {
 	}
 
 	if res.Body != nil {
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		if err != nil {
 			return HTTPResponse{}, fmt.Errorf("failed to read response body: %w", err)
 		}
 
-		res.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+		res.Body = io.NopCloser(bytes.NewBuffer(body))
 		bodyStr := string(body)
 		httpRes.Body = &bodyStr
 	}

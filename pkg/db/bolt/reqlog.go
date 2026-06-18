@@ -41,7 +41,7 @@ func (db *Database) FindRequestLogs(ctx context.Context, filter reqlog.FindReque
 	if err != nil {
 		return nil, fmt.Errorf("bolt: failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	b, err := requestLogsBucket(tx, filter.ProjectID)
 	if err != nil {

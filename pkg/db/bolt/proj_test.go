@@ -214,6 +214,9 @@ func TestDeleteProject(t *testing.T) {
 		got = tx.Bucket([]byte("projects")).Bucket(projectID[:])
 		return nil
 	})
+	if err != nil {
+		t.Fatalf("unexpected error reading project bucket: %v", err)
+	}
 	if got != nil {
 		t.Fatalf("expected bucket to be nil, got: %v", got)
 	}
