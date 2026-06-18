@@ -45,6 +45,7 @@ archives:
         formats: [zip]
     name_template: "proxima_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
+      - LICENSE
       - README.md
       - CHANGELOG.md
       - PLUGINS.md
