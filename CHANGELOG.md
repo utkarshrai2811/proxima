@@ -72,7 +72,7 @@ new features.
   - Windows: `%APPDATA%\proxima\`
 - Builds for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
 - Distribution: Homebrew Cask (macOS), Scoop bucket (Windows), and `.deb`/`.rpm`/`.apk`
-  packages plus tarballs (Linux). `go install` works on all platforms.
+  packages plus tarballs (Linux)
 
 ### Breaking changes
 

@@ -159,9 +159,4 @@ release:
     sudo apk add --allow-untrusted proxima_{{.Version}}_linux_amd64.apk
     ```
 
-    **All platforms (Go install):**
-    ```bash
-    go install github.com/utkarshrai2811/proxima/cmd/proxima@latest
-    ```
-
     Or download a tarball/binary from the assets below.

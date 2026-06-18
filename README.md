@@ -76,12 +76,6 @@ tar xzf proxima_<version>_linux_amd64.tar.gz
 sudo mv proxima /usr/local/bin/
 ```
 
-### All platforms — Go install
-
-```bash
-go install github.com/utkarshrai2811/proxima/cmd/proxima@latest
-```
-
 ### Build from source
 
 Requires Go 1.25+ and Node 20+:
@@ -92,6 +86,11 @@ cd proxima
 make build
 ./proxima
 ```
+
+> **Note:** `go install ...@latest` is intentionally not supported. The web UI is
+> embedded at build time from a generated `admin/dist` directory that is not
+> checked into the repository, so the binary must be produced via `make build`
+> (or installed from a release) rather than `go install`.
 
 ---
 
